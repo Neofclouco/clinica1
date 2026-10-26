@@ -1,0 +1,8 @@
+*.class
+build/
+lib/*.jar
+.env
+.env.*
+!.env.example
+*.local.properties
+__pycache__/

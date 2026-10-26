@@ -1,0 +1,384 @@
+# Relatório consolidado de correções, evidências e pendências
+
+Data: 26/10/2026. Repositório: FelipebSena/Clinica-Fisioterapia.
+Base examinada: commit `02e1469b74d535a7c52ebbe2152d7332c764de7a`.
+Referência normativa: `Projeto_Final_Laboratorio_de_Banco_de_Dados_2026-2 (2).pdf`,
+fornecido na conversa, itens 4, 5.1, 5.2, 6.1 e anexos B/C.
+
+## 1. Conclusão e limite autorizado
+
+Foram corrigidos os quatro CRUDs, a configuração de credenciais e a ausência de
+evidências/documentação consolidada. A aplicação compila, abre e os cadastros passaram
+por testes reais com MySQL. Isso não significa que o projeto inteiro esteja pronto:
+as consultas avançadas, o relatório por visão, a tela antiga de sessões e as
+inconsistências de modelo continuam presentes, deliberadamente, conforme a solicitação.
+
+O schema, a carga, os scripts originais, o MER e os PDFs antigos não foram alterados.
+O PNG do MER no GitHub tem tamanho/resolução diferente do primeiro anexo, mas mantém
+as mesmas cardinalidades problemáticas; o arquivo draw.io é idêntico. SQL, Java original
+e os quatro PDFs do grupo foram comparados com os anexos e coincidem.
+
+Este documento substitui as afirmações de desempenho sem comprovação como referência
+para a revisão. Os documentos legados anexados ao PDF são material histórico identificado,
+não decisões ratificadas nem correções silenciosas. O PDF consolidado reúne esta revisão,
+os planos reais e A1-A5 existentes. A revisão efetiva de A1-A5 ainda depende de corrigir
+os itens abaixo. A devolutiva do professor não foi fornecida.
+
+## 2. Alterações realizadas
+
+### C01 — Quatro CRUDs completos (B1)
+
+Pacientes, Fisioterapeutas, Salas e Exercícios têm Criar, Consultar por ID, Atualizar e
+Excluir. Equipamentos foi substituído por Exercícios porque a tabela equipamento não
+existe. Essa substituição e o ajuste dos campos eram necessários para entregar quatro
+CRUDs do modelo real, sem inventar outra entidade.
+
+`CrudRepository.java` possui SQL fixo por entidade, PreparedStatement, chaves corretas,
+leitura por executeQuery, criação com ID gerado e verificação de linhas afetadas.
+Campos opcionais vazios tornam-se NULL. CPF é validado por 11 dígitos (não há cálculo de
+dígitos verificadores), datas futuras são rejeitadas e campos obrigatórios não aceitam
+vazio na aplicação. Restrições do banco continuam responsáveis pelos vínculos e unicidade.
+
+`CrudPanel.java` apresenta campos separados, resultado tabular, mensagens de erro e
+confirmação de exclusão. Operações de banco executam em SwingWorker; os botões ficam
+desabilitados durante a operação. ID é exigido apenas para consultar/alterar/excluir.
+
+Fisioterapeuta cria profissional e subtipo na mesma transação; alteração também abrange
+as duas tabelas. Falha no segundo INSERT desfaz o profissional. Exclusão respeita as
+FKs do modelo. Esse fluxo não resolve a totalidade para quem escreve diretamente no SQL
+nem muda os privilégios dos papéis existentes.
+
+### C02 — Credenciais externas (B2)
+
+`DbConfig.java` exige DB_URL, DB_USER e DB_PASSWORD. Não há senha literal, usuário root
+padrão ou credenciais substitutas. A inicialização explica qual variável falta, sem
+imprimir seu conteúdo. `.gitignore` ignora arquivos locais de configuração, classes e
+JARs. `.env.example` não contém senha e não é carregado automaticamente.
+
+README documenta JDK, Connector/J, preparação do banco, compilação e execução em Windows
+e Linux/macOS. Para quatro CRUDs usa-se admin_user, com o papel Administrador no schema
+da clínica; root é reservado à instalação/experimentos administrativos na cópia descartável.
+
+A senha anterior continua no histórico Git. Não foi reescrito o histórico compartilhado
+nem alterada uma conta real desconhecida. Se a senha foi usada fora do exemplo, seu
+responsável deve rotacioná-la. Esta é uma ação externa pendente, não uma falha do fallback atual.
+
+### C03 — Evidências reproduzíveis (B2/B3/B4/B5/B6)
+
+Foram adicionados testes Java JDBC/Swing e uma suíte Python para experimentos MySQL.
+Todos foram executados nesta revisão em uma instância isolada e descartável.
+O README documenta como reproduzir. Não se atribuem à equipe experimentos que ela ainda
+não executou pessoalmente. Dados de saída não incluem senhas nem hashes de autenticação.
+
+Arquivos: `tests/CrudIntegrationTest.java`, `tests/evidence.py`,
+`tests/requirements.txt`, `docs/evidencias/crud-jdbc.txt`,
+`docs/evidencias/resultados.json` e `docs/evidencias/desempenho.md`.
+
+## 3. Ambiente e resultados observados
+
+MySQL 8.0.46, OpenJDK 17, Connector/J 8.4.0, PyMySQL 1.1.2, Swing com Xvfb em Linux.
+Isolamento observado: REPEATABLE-READ. STRICT_TRANS_TABLES e ONLY_FULL_GROUP_BY ativos.
+Os dois scripts originais executaram do início ao fim sem erro em base limpa.
+
+Carga: 40 pacientes, 40 profissionais, 20 fisioterapeutas, 20 estagiários, 40 tratamentos,
+237 sessões, 169 evoluções, 440 aplicações de exercícios, 103 avaliações, 40 habilitações,
+8 convênios, 8 especialidades, 8 salas e 13 exercícios.
+
+### Testes de CRUD e validação
+
+- Criar/consultar/alterar/excluir nas quatro entidades, incluindo leitura de NULL e atualização sem mudar valores: aprovados.
+- Exclusão de ID inexistente: retorna ausência em vez de falso sucesso.
+- Exclusão do paciente 15, referenciado em tratamento: bloqueada por FK, erro 1451.
+- Duplicação de CREFITO no segundo INSERT: erro 1062; contagem de profissional permanece igual após rollback.
+- Texto `Teste JDBC ' OR '1'='1` em nome de exercício: armazenado/consultado como dado literal e removido ao fim.
+- ID `1 OR 1=1`: rejeitado como entrada inválida antes da consulta.
+- Quatro botões reais do painel Swing exercitados com Sala: criar, consultar, atualizar e excluir com confirmação; dados conferidos por JDBC.
+- As quatro entidades compartilham esse painel; suas operações específicas foram testadas pelo repositório real. Não foi simulada toda combinação de permissão/erro em todas as telas.
+
+### Transações (B3)
+
+O teste de fisioterapeuta exercita o mesmo repositório utilizado pela interface:
+setAutoCommit(false), INSERT profissional, INSERT fisioterapeuta, COMMIT; duplicação de
+CREFITO no segundo comando provoca ROLLBACK e não deixa profissional órfão.
+
+Também foi testada a operação SQL equivalente à tela antiga de sessão: uma sessão
+histórica válida e sua evolução foram confirmadas com COMMIT. Na segunda tentativa,
+o INSERT da sessão teve sucesso e a evolução falhou por NOT NULL (erro 1048); após
+ROLLBACK a sessão não existia. O teste usou os pares temporários (1,6)/(1,7), limpou-os
+e não corrigiu a tela antiga. As instruções completas estão em `tests/evidence.py`.
+
+### Concorrência (B3)
+
+Duas conexões reais simultâneas atuaram sobre uma sala temporária. A iniciou transação,
+fez SELECT ... FOR UPDATE e manteve a linha bloqueada; B tentou incrementar capacidade.
+A espera foi confirmada em performance_schema.data_lock_waits, não inferida só por tempo.
+Depois do COMMIT de A, B concluiu seu UPDATE e COMMIT. Capacidade final: 3 (inicial 1,
+dois incrementos), sem atualização perdida. Houve espera, não deadlock.
+
+REPEATABLE-READ foi mantido por ser o padrão observado e oferecer leituras consistentes.
+O controle da atualização concorrente nesse exemplo depende do bloqueio de linha e do
+UPDATE atômico, não apenas do nome do isolamento. A aplicação ainda usa o isolamento
+configurado no servidor; outro ambiente deve confirmar seu valor. Nada neste teste
+resolve a sequência de sessões da RN15, que permanece pendente.
+
+### Perfis, logins e revogação (B5)
+
+Foram criadas contas temporárias separadas, com senhas aleatórias em memória, e conectadas
+realmente com cada papel original. CURRENT_ROLE foi conferido. As contas foram removidas.
+
+| Operação | Administrador | Fisioterapeuta | Estagiario |
+|---|---|---|---|
+| Ler CPF em paciente | Permitido | Permitido | Negado 1142 |
+| Ler vw_paciente_restrito | Permitido | Negado 1142 | Permitido |
+| Executar DELETE em paciente | Permitido | Negado 1142 | Negado 1142 |
+
+O DELETE usado para medir permissão tinha ID inexistente, evitando perda de dados.
+Fisioterapeuta também passou por verificação de permissão INSERT em evolução sem inserir
+linhas. Para Estagiario, SELECT em sala foi concedido diretamente, testado, revogado
+com REVOKE e novamente negado (1142). Isso documenta GRANT/REVOKE sem ampliar permanentemente
+os papéis do grupo. A visão restrita omite CPF/telefone/convênio, mas mantém nome e nascimento.
+
+Dados pessoais/clínicos presentes: CPF, nome, telefone, email, nascimento, avaliações,
+conduta e resposta observada. A carga declara dados fictícios. Nesta revisão não se
+usaram dados pessoais reais; senhas não são publicadas e os testes ocorreram isoladamente.
+A estratégia de autenticação/hash da aplicação permanece uma pendência explícita.
+
+### Auditoria (B6)
+
+Um UPDATE de evolução e uma exclusão da sessão por cascata produziram registros com
+acao UPDATE/DEL_CASC, autor do banco, data e valores anteriores/posteriores. Justificativa:
+conduta e resposta clínica precisam permitir rastrear mudanças e remoções. O teste
+limpou seus próprios registros da auditoria somente na cópia descartável. Não foi
+alterado o DDL de auditoria nem validado todo caminho possível de cascade.
+
+## 4. Desempenho medido (B4)
+
+Três consultas do estudo original foram medidas. Para cada índice: remover na cópia,
+ANALYZE TABLE, cinco aquecimentos, 30 repetições, EXPLAIN/EXPLAIN ANALYZE antes, recriar,
+repetir depois. Os outros índices permanecem disponíveis. Saídas completas e todas as
+amostras estão em `resultados.json`; SQL, leitura de plano e justificativas estão em
+`desempenho.md`, também incorporado ao PDF.
+
+Os tempos incluem cliente e transporte TCP; a carga é pequena. A ordem dos ensaios
+foi fixa, portanto não há afirmação de significância estatística. Dois índices
+apresentaram medianas maiores nesta rodada. Não se repete a conclusão antiga de
+“ganho significativo confirmado” sem números. Não foi feito aumento artificial da carga.
+
+
+| Índice | Antes (mediana ms) | Depois (mediana ms) | Observação |
+|---|---|---|---|
+| idx_paciente_busca | 0.235294 | 0.161809 | Menor nesta rodada |
+| idx_sessao_situacao | 0.584083 | 0.614298 | Sem ganho nesta rodada |
+| idx_avaliacao_dor | 0.660720 | 0.745641 | Sem ganho nesta rodada |
+
+## 5. Matriz de aderência ao professor
+
+| Item | Situação após esta revisão |
+|---|---|
+| Complexidade mínima | Entidades, N:N, especialização e histórico presentes; autorrelacionamento e cardinalidades precisam revisão. |
+| A1 escopo/regras | Existe; matriz de implementação desatualizada. |
+| A2 MER | Existe PNG/fonte; cardinalidades erradas mantidas para futura correção. |
+| A3 dicionário | Existe; divergências de domínios/obrigatoriedade mantidas. |
+| A4 lógico | Existe; justificativas contraditórias mantidas. |
+| A5 normalização | Existe análise, mas DFs incompletas e afirmações insuficientes. |
+| A6 físico | Executa em base limpa; três FKs omitem ações explícitas. |
+| A7 carga | Executa; dados e contagens conferidos. Escopo de tabelas principais a esclarecer. |
+| A8 consultas | Quinze consultas 5/5/5 executam no SQL original. |
+| A9 relatório único | Material A1-A5 reunido no consolidado, com pendências explícitas; sem afirmar revisão integral. |
+| B1 interface | Quatro CRUDs corrigidos; consultas avançadas e visão continuam quebradas; tela antiga de sessão incompleta. |
+| B2 acesso | CRUD parametrizado, configuração externa e teste de entrada maliciosa executados. |
+| B3 transação/concorrência | Evidência de sucesso/falha e duas conexões incluída. Demo ao vivo ainda cabe à equipe. |
+| B4 otimização | Três estudos com planos, tempo, volume, índices e discussão honesta incluídos. |
+| B5 segurança | Três perfis testados com logins reais e GRANT/REVOKE; hash/sal da aplicação continua sem demonstração própria. |
+| B6 auditoria | Gatilhos existentes e dois caminhos testados; justificativa e resultados documentados. |
+| B7 físico/backup | Documento legado tem erros; foram apenas relatados, não corrigidos. |
+| B8 final | Consolidação fornecida como revisão, não como trabalho final sem pendências; falta devolutiva e defesa da equipe. |
+
+## 6. Erros restantes — não corrigidos
+
+### P01 — Consultas avançadas incompatíveis (alta prioridade)
+
+Em `ClinicaApp.criarPainelConsultas`, primeira SQL usa p.id, s.id_paciente e s.id_sessao;
+a segunda usa t.id, t.descricao e s.id_sessao. Esses nomes não existem. É necessário
+refazer a ligação paciente → tratamento → sessão e usar as chaves reais. As duas consultas
+estão em uma aba, enquanto B1 pede duas telas; separar evita ambiguidade. Nada foi mudado
+nesses métodos, por não estar entre os itens selecionados.
+
+### P02 — Visão gerencial ausente (alta)
+
+`criarPainelView` consulta vw_relatorio_consolidado, ausente em ambos os scripts.
+Existe somente vw_paciente_restrito. Criar e conceder uma visão consolidada será uma
+correção futura; a aba continua produzindo erro. O teste de perfis não cria essa visão.
+
+### P03 — Tela antiga de sessão e dados clínicos (alta)
+
+Os defaults tratamento 1/sessão 4 já existem na carga. O tratamento 1 recebeu alta em
+17/02/2026; NOW() cria sessão fora desse período. O texto “Resposta positiva observada.”
+é fixo, sem entrada do profissional. É preciso selecionar tratamento/data válidos e
+coletar a resposta real. O teste equivalente em SQL documenta a transação, mas não torna
+essa tela correta. Exemplo comentado de sala 9999 falha no primeiro INSERT, não no meio.
+
+### P04 — Cardinalidades invertidas no MER (alta)
+
+Em `docs/mer-conceitual.drawio` e PNG, há multiplicidade do lado errado. Leituras corretas:
+
+| Relação | Regra a representar |
+|---|---|
+| Convênio/Paciente | Paciente tem 0..1 convênio; convênio tem 0..N pacientes. |
+| Paciente/Tratamento | Tratamento tem 1 paciente; paciente tem 0..N tratamentos. |
+| Fisioterapeuta/Tratamento | Tratamento tem 1 responsável; responsável tem 0..N tratamentos. |
+| Especialidade/Tratamento | Tratamento tem 1 especialidade; especialidade tem 0..N tratamentos. |
+| Tratamento/Sessão | Sessão tem 1 tratamento; tratamento tem 0..N sessões. |
+| Sala/Sessão | Sessão tem 1 sala; sala tem 0..N sessões ao longo do tempo. |
+| Sessão/Evolução | Evolução tem 1 sessão; sessão tem 0..1 evolução, não N. |
+| Paciente/Avaliação | Avaliação tem 1 paciente; paciente tem 0..N avaliações. |
+| Profissional/Habilitação | Habilitação tem 1 profissional; profissional tem 0..N vínculos. |
+| Especialidade/Habilitação | Habilitação tem 1 especialidade; especialidade tem 0..N vínculos. |
+| Sessão/Aplicação | Aplicação tem 1 sessão; sessão tem 0..N aplicações. |
+| Exercício/Aplicação | Aplicação tem 1 exercício; exercício tem 0..N aplicações. |
+| Supervisor/Estagiário | Estagiário tem 1 supervisor; supervisor tem 0..N estagiários. |
+
+A participação mínima zero é compatível com o DDL/cadastros atuais. Outra escolha deve
+ser justificada e implementada, não apenas redesenhada.
+
+### P05 — Autorrelacionamento pouco explícito (média)
+
+O escopo declara Profissional supervisiona Profissional; o MER liga os subtipos.
+Essa ligação expressa supervisão no domínio, mas não deixa o requisito recursivo
+inequívoco. Representar os papéis no supertipo e documentar a restrição dos subtipos.
+O FK físico para fisioterapeuta está adequado para impedir supervisor estagiário.
+
+### P06 — Totalidade da especialização não garantida no banco (alta)
+
+Triggers impedem dupla classificação nas operações diretas previstas, mas é possível
+inserir profissional sem subtipo ou apagar só o subtipo. O CRUD novo protege o seu
+cadastro de fisioterapeuta com transação; não corrige todos os caminhos no banco.
+`modelo-logico.pdf` p.2 afirma totalidade indevidamente. Definir como garantir a regra
+em todos os fluxos e permissões antes de alterar a modelagem.
+
+### P07 — RN15: números sequenciais não garantidos (alta)
+
+PK e CHECK >0 permitem saltos como sessão 999. A tela antiga aceita qualquer número.
+Gerar próxima sequência exige transação/bloqueio e política de exclusão; MAX+1 sem
+controle concorrente é insuficiente. O experimento de sala não soluciona isso.
+
+### P08 — FKs de tratamento sem ON DELETE/ON UPDATE explícitos (média)
+
+`SQL/etapa01.sql`, FKs para paciente/fisioterapeuta/especialidade, usa ações padrão.
+O professor A6 exige declaração explícita. Não recolocar CASCADE sem analisar coluna
+gerada e regras; RESTRICT explícito pode preservar a decisão atual.
+
+### P09 — Rastreabilidade RN/SQL desatualizada (média)
+
+Escopo menciona ck_paciente_data_nasc e ck_profissional_tipo ausentes nesses formatos.
+RN13 usa coluna gerada + UNIQUE no SQL; RN19 tem gatilhos além da consulta descrita.
+Modelo lógico p.2 diz que id_supervisor referencia profissional, mas referencia
+fisioterapeuta. Atualizar a matriz com nome do objeto, arquivo e teste real.
+
+### P10 — Domínios do dicionário não são garantidos por SQL direto (média)
+
+CHAR(11) não exige 11 dígitos; NOT NULL não rejeita ''. A aplicação nova valida esses
+casos nos seus quatro CRUDs; o schema continua aceitando entradas inválidas por outros
+caminhos. Dicionário trata CPF profissional único como recomendação, mas DDL impõe UNIQUE.
+Alinhar domínios, banco e documentação; definir formato de amplitude_movimento.
+
+### P11 — Normalização incompleta (média)
+
+No modelo lógico p.2, DF de aplicacao_exercicio termina em “series,”, omitindo repetições
+e carga. Faltam DFs/chaves candidatas relevantes (CPF, nomes únicos, CREFITO, código,
+pares únicos de sessão/avaliação). PK simples por si só não é prova geral de 2FN.
+Não há demonstração de violação de 3FN neste achado; há insuficiência da prova escrita.
+Resumo da p.3 só lista 1FN/2FN, apesar de discutir 3FN/BCNF.
+
+### P12 — Coluna física gerada sem justificativa atualizada (média)
+
+id_especialidade_em_andamento é STORED e participa de UNIQUE para RN13, mas não está
+registrada na decisão física do modelo; o texto afirma não haver campos calculados
+permanentes. Explicar NULL para tratamentos encerrados e derivação; não tratar como
+dado independente. O índice correto existente foi preservado.
+
+### P13 — Volume mínimo de tabelas principais (a esclarecer)
+
+40 pacientes/profissionais/tratamentos e mais de 100 sessões atendem parte do requisito.
+Fisioterapeuta/estagiario têm 20 e exercício 13. O professor diz “tabelas principais”,
+não “todas”: esclarecer a classificação antes de inflar convênios/salas artificialmente.
+
+### P14 — Layout de entrega SQL ainda difere do pedido (média)
+
+A6-A8 pedem 01_ddl.sql, 02_carga.sql e 03_consultas.sql separados. O repositório mantém
+etapa01.sql com os três conteúdos. README agora descreve os nomes reais, mas os scripts
+não foram reorganizados. O relatório único já foi criado nesta revisão; A1-A5 ainda
+precisam correção, e a apresentação da equipe não é substituída pelo PDF.
+
+### P15 — Tratamento de erro e fechamento de conexão na tela antiga (média)
+
+O método antigo tratarErroSQL não explica SQLSTATE 45000; erro de transação esconde o
+motivo original. setAutoCommit(true) e close compartilham um try; se o primeiro falhar,
+o segundo pode não executar. Os novos CRUDs usam try-with-resources/mensagens próprias;
+os métodos antigos foram preservados.
+
+### P16 — Autenticação da aplicação e acesso do estagiário (alta)
+
+Não existe login próprio nem armazenamento de senhas da aplicação com hash e sal.
+Usar contas MySQL não prova automaticamente esse requisito textual de B5; documentar
+a decisão e alinhar com o professor, ou implementar autenticação adequada depois.
+O estagiário não tem SELECT direto em paciente; sua aba de paciente continua negando
+o acesso, corretamente segundo os GRANTs, mas não oferece um fluxo pela visão restrita.
+Não foram ampliados privilégios só para fazer botões funcionarem.
+
+### P17 — B7: particionamento incompatível com o schema (média)
+
+`relatorio-etapa2.pdf` p.4 propõe PARTITION BY RANGE em sessao/data_hora. MySQL 8.0
+InnoDB particionado não admite as FKs atuais, e a coluna de particionamento precisaria
+estar em toda chave única. A PK de sessão não inclui data_hora. Proposta exige outra
+arquitetura ou deve ser substituída por arquivamento justificado; não aplicada.
+
+### P18 — B7: horizonte de crescimento e backup incompletos (média)
+
+52.800 sessões/ano está aritmeticamente correto; o professor pede dois anos e as tabelas
+de maior movimento. Faltam projeções para evolução/aplicações e base para o percentual
+85%. Backup “diferencial com mysqldump ou XtraBackup” mistura mecanismos sem procedimento;
+backup completo e incrementais por binlog exigem etapas próprias. Retenção mensal não
+está quantificada e teste só do full não verifica cadeia incremental. RPO/RTO aparecem
+sem valores. Somente diagnóstico; o plano legado não foi reescrito.
+
+### P19 — Outras inconsistências menores e pendências externas
+
+Consulta SQL 4 não inclui nome exatamente 'Ana', embora busque palavra inteira.
+Convênio 'Particular' duplica conceitualmente a representação por NULL. “Aluno 3” permanece
+no modelo lógico. Não há restrição geral de horário sobreposto por duração (o schema
+só impede mesmo instante), nem vínculo obrigatório entre responsável e habilitação
+na especialidade do tratamento; a carga é coerente, mas escritas futuras podem divergir
+se essas forem regras pretendidas. São decisões a confirmar, não requisitos novos
+inventados como obrigação do professor.
+
+A nova declaração de IA abrange esta revisão. O grupo ainda deve confirmar o uso nos
+artefatos anteriores, incorporar a devolutiva da Etapa 1 e demonstrar domínio na arguição.
+Há histórico Git com autores, mas isso não permite julgar participação individual.
+Acesso do professor, cumprimento de prazos e apresentação ao vivo não foram verificados.
+
+## 7. Próxima ordem de trabalho, sem alterações nesta rodada
+
+1. Corrigir consultas avançadas e criar a visão gerencial (P01/P02).
+2. Corrigir tela de sessão, numeração, temporalidade e mensagens (P03/P07/P15).
+3. Corrigir MER, totalidade e rastreabilidade (P04-P12).
+4. Fechar decisão de autenticação e fluxos por perfil (P16).
+5. Corrigir B7, organizar SQL e concluir a revisão documental (P13/P14/P17-P19).
+6. Reproduzir os testes com o grupo e preparar demonstração oral de 15 minutos.
+
+## 8. Referências técnicas e integridade da revisão
+
+Documentação oficial: Java PreparedStatement (executeQuery/executeUpdate),
+https://docs.oracle.com/javase/8/docs/api/java/sql/PreparedStatement.html ;
+MySQL 8.0 particionamento/FKs,
+https://dev.mysql.com/doc/refman/8.0/en/partitioning-limitations-storage-engines.html ;
+MySQL range optimization,
+https://dev.mysql.com/doc/refman/8.0/en/range-optimization.html ;
+MySQL recuperação incremental,
+https://dev.mysql.com/doc/refman/8.0/en/point-in-time-recovery.html .
+
+Uso de IA: implementação, testes e redação assistidos nesta revisão. Verificação:
+compilação, JDBC contra MySQL real, ações Swing, medição de planos/tempo, conexões
+simultâneas, logins de três papéis e inspeção visual do PDF. Não foram simulados resultados
+como se fossem experimentos reais. A equipe deve revisar, reproduzir e explicar os
+resultados antes de apresentá-los como parte de sua entrega acadêmica.

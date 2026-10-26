@@ -1,0 +1,682 @@
+{
+  "environment": {
+    "version": "8.0.46-0ubuntu0.24.04.3",
+    "isolation": "REPEATABLE-READ",
+    "sql_mode": "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+    "source_commit": "02e1469b74d535a7c52ebbe2152d7332c764de7a",
+    "dataset": {
+      "paciente": 40,
+      "profissional": 40,
+      "tratamento": 40,
+      "sessao": 237,
+      "avaliacao_fisica": 103,
+      "evolucao": 169,
+      "aplicacao_exercicio": 440
+    },
+    "note": "Cópia da carga original, sem ampliação sintética. Valores de tempo não representam produção."
+  },
+  "benchmarks": [
+    {
+      "table": "paciente",
+      "index": "idx_paciente_busca",
+      "columns": "data_nascimento, id_convenio, telefone",
+      "sql": "SELECT id_paciente,nome,data_nascimento,telefone FROM paciente WHERE data_nascimento BETWEEN '1985-01-01' AND '1995-12-31' AND id_convenio IN (1,2,3,4) AND telefone IS NULL",
+      "before": {
+        "median_ms": 0.235294,
+        "min_ms": 0.209922,
+        "max_ms": 0.919264,
+        "samples_ms": [
+          0.919264,
+          0.698836,
+          0.737784,
+          0.400244,
+          0.224578,
+          0.291302,
+          0.625938,
+          0.278698,
+          0.27634,
+          0.272133,
+          0.230351,
+          0.219826,
+          0.245504,
+          0.216581,
+          0.250852,
+          0.220657,
+          0.238023,
+          0.221388,
+          0.214208,
+          0.23571,
+          0.212695,
+          0.240817,
+          0.218544,
+          0.213237,
+          0.234878,
+          0.236561,
+          0.215599,
+          0.209922,
+          0.210863,
+          0.232845
+        ],
+        "rows_returned": 0,
+        "explain": [
+          [
+            1,
+            "SIMPLE",
+            "paciente",
+            null,
+            "ALL",
+            "idx_paciente_convenio",
+            null,
+            null,
+            null,
+            40,
+            2.5,
+            "Using where"
+          ]
+        ],
+        "explain_analyze": [
+          [
+            "-> Filter: ((paciente.data_nascimento between '1985-01-01' and '1995-12-31') and (paciente.id_convenio in (1,2,3,4)) and (paciente.telefone is null))  (cost=4.25 rows=1) (actual time=0.0357..0.0357 rows=0 loops=1)\n    -> Table scan on paciente  (cost=4.25 rows=40) (actual time=0.00674..0.0215 rows=40 loops=1)\n"
+          ]
+        ]
+      },
+      "after": {
+        "median_ms": 0.1618095,
+        "min_ms": 0.12841,
+        "max_ms": 0.66759,
+        "samples_ms": [
+          0.18912,
+          0.143143,
+          0.19566,
+          0.134359,
+          0.128951,
+          0.169512,
+          0.146036,
+          0.140017,
+          0.167698,
+          0.144665,
+          0.131605,
+          0.12841,
+          0.130443,
+          0.129552,
+          0.128821,
+          0.421816,
+          0.200277,
+          0.66759,
+          0.242775,
+          0.218474,
+          0.219886,
+          0.169912,
+          0.198634,
+          0.247177,
+          0.133187,
+          0.293105,
+          0.244793,
+          0.152867,
+          0.153397,
+          0.155921
+        ],
+        "rows_returned": 0,
+        "explain": [
+          [
+            1,
+            "SIMPLE",
+            "paciente",
+            null,
+            "range",
+            "idx_paciente_convenio,idx_paciente_busca",
+            "idx_paciente_busca",
+            "91",
+            null,
+            13,
+            4.0,
+            "Using index condition"
+          ]
+        ],
+        "explain_analyze": [
+          [
+            "-> Index range scan on paciente using idx_paciente_busca over ('1985-01-01' <= data_nascimento <= '1995-12-31' AND 1 <= id_convenio <= 4 AND telefone = NULL), with index condition: ((paciente.data_nascimento between '1985-01-01' and '1995-12-31') and (paciente.id_convenio in (1,2,3,4)) and (paciente.telefone is null))  (cost=6.11 rows=13) (actual time=0.0102..0.0102 rows=0 loops=1)\n"
+          ]
+        ]
+      }
+    },
+    {
+      "table": "sessao",
+      "index": "idx_sessao_situacao",
+      "columns": "situacao, id_tratamento",
+      "sql": "SELECT p.nome,COUNT(s.numero_sessao) FROM paciente p JOIN tratamento t ON t.id_paciente=p.id_paciente JOIN sessao s ON s.id_tratamento=t.id_tratamento WHERE s.situacao='REALIZADA' GROUP BY p.id_paciente,p.nome ORDER BY COUNT(s.numero_sessao) DESC",
+      "before": {
+        "median_ms": 0.5840835,
+        "min_ms": 0.459592,
+        "max_ms": 0.828038,
+        "samples_ms": [
+          0.57997,
+          0.828038,
+          0.616794,
+          0.501213,
+          0.495715,
+          0.618487,
+          0.79597,
+          0.644175,
+          0.569509,
+          0.554412,
+          0.479071,
+          0.526696,
+          0.610115,
+          0.592759,
+          0.784824,
+          0.724635,
+          0.648431,
+          0.771574,
+          0.647701,
+          0.62716,
+          0.588197,
+          0.492891,
+          0.488244,
+          0.469186,
+          0.750222,
+          0.49239,
+          0.459592,
+          0.534933,
+          0.5053,
+          0.467203
+        ],
+        "rows_returned": 40,
+        "explain": [
+          [
+            1,
+            "SIMPLE",
+            "p",
+            null,
+            "ALL",
+            "PRIMARY",
+            null,
+            null,
+            null,
+            40,
+            100.0,
+            "Using temporary; Using filesort"
+          ],
+          [
+            1,
+            "SIMPLE",
+            "t",
+            null,
+            "ref",
+            "PRIMARY,uq_tratamento_paciente_especialidade_aberto,idx_tratamento_paciente",
+            "uq_tratamento_paciente_especialidade_aberto",
+            "4",
+            "clinica_fisioterapia.p.id_paciente",
+            1,
+            100.0,
+            "Using index"
+          ],
+          [
+            1,
+            "SIMPLE",
+            "s",
+            null,
+            "ref",
+            "PRIMARY",
+            "PRIMARY",
+            "4",
+            "clinica_fisioterapia.t.id_tratamento",
+            5,
+            25.0,
+            "Using where"
+          ]
+        ],
+        "explain_analyze": [
+          [
+            "-> Sort: `COUNT(s.numero_sessao)` DESC  (actual time=0.262..0.263 rows=40 loops=1)\n    -> Table scan on <temporary>  (actual time=0.251..0.254 rows=40 loops=1)\n        -> Aggregate using temporary table  (actual time=0.25..0.25 rows=40 loops=1)\n            -> Nested loop inner join  (cost=52 rows=59.3) (actual time=0.016..0.179 rows=182 loops=1)\n                -> Nested loop inner join  (cost=18.2 rows=40) (actual time=0.011..0.057 rows=40 loops=1)\n                    -> Table scan on p  (cost=4.25 rows=40) (actual time=0.00633..0.014 rows=40 loops=1)\n                    -> Covering index lookup on t using uq_tratamento_paciente_especialidade_aberto (id_paciente=p.id_paciente)  (cost=0.253 rows=1) (actual time=706e-6..927e-6 rows=1 loops=40)\n                -> Filter: (s.situacao = 'REALIZADA')  (cost=0.255 rows=1.48) (actual time=0.00145..0.00267 rows=4.55 loops=40)\n                    -> Index lookup on s using PRIMARY (id_tratamento=t.id_tratamento)  (cost=0.255 rows=5.93) (actual time=0.00125..0.00192 rows=5.92 loops=40)\n"
+          ]
+        ]
+      },
+      "after": {
+        "median_ms": 0.6142985,
+        "min_ms": 0.459802,
+        "max_ms": 2.559727,
+        "samples_ms": [
+          0.622979,
+          0.652468,
+          0.625367,
+          0.585588,
+          0.496997,
+          0.502836,
+          0.477087,
+          0.556325,
+          0.538269,
+          0.63053,
+          0.542204,
+          0.53296,
+          0.469036,
+          0.484919,
+          0.459802,
+          2.559727,
+          0.605618,
+          0.521048,
+          0.920991,
+          1.297769,
+          0.887235,
+          0.793126,
+          1.16013,
+          0.791308,
+          0.538774,
+          0.944715,
+          0.794218,
+          0.639057,
+          0.605578,
+          0.654701
+        ],
+        "rows_returned": 40,
+        "explain": [
+          [
+            1,
+            "SIMPLE",
+            "p",
+            null,
+            "ALL",
+            "PRIMARY",
+            null,
+            null,
+            null,
+            40,
+            100.0,
+            "Using temporary; Using filesort"
+          ],
+          [
+            1,
+            "SIMPLE",
+            "t",
+            null,
+            "ref",
+            "PRIMARY,uq_tratamento_paciente_especialidade_aberto,idx_tratamento_paciente",
+            "uq_tratamento_paciente_especialidade_aberto",
+            "4",
+            "clinica_fisioterapia.p.id_paciente",
+            1,
+            100.0,
+            "Using index"
+          ],
+          [
+            1,
+            "SIMPLE",
+            "s",
+            null,
+            "ref",
+            "PRIMARY,idx_sessao_situacao",
+            "idx_sessao_situacao",
+            "5",
+            "const,clinica_fisioterapia.t.id_tratamento",
+            3,
+            100.0,
+            "Using where; Using index"
+          ]
+        ],
+        "explain_analyze": [
+          [
+            "-> Sort: `COUNT(s.numero_sessao)` DESC  (actual time=0.283..0.284 rows=40 loops=1)\n    -> Table scan on <temporary>  (actual time=0.271..0.275 rows=40 loops=1)\n        -> Aggregate using temporary table  (actual time=0.271..0.271 rows=40 loops=1)\n            -> Nested loop inner join  (cost=40.8 rows=125) (actual time=0.0162..0.198 rows=182 loops=1)\n                -> Nested loop inner join  (cost=18.2 rows=40) (actual time=0.0116..0.0856 rows=40 loops=1)\n                    -> Table scan on p  (cost=4.25 rows=40) (actual time=0.00671..0.0149 rows=40 loops=1)\n                    -> Covering index lookup on t using uq_tratamento_paciente_especialidade_aberto (id_paciente=p.id_paciente)  (cost=0.253 rows=1) (actual time=772e-6..0.00101 rows=1 loops=40)\n                -> Filter: (s.situacao = 'REALIZADA')  (cost=0.259 rows=3.12) (actual time=0.00133..0.00244 rows=4.55 loops=40)\n                    -> Covering index lookup on s using idx_sessao_situacao (situacao='REALIZADA', id_tratamento=t.id_tratamento)  (cost=0.259 rows=3.12) (actual time=0.00114..0.00179 rows=4.55 loops=40)\n"
+          ]
+        ]
+      }
+    },
+    {
+      "table": "avaliacao_fisica",
+      "index": "idx_avaliacao_dor",
+      "columns": "id_paciente, nivel_dor",
+      "sql": "SELECT p.id_paciente,p.nome,AVG(a.nivel_dor) FROM paciente p JOIN avaliacao_fisica a ON a.id_paciente=p.id_paciente WHERE EXISTS (SELECT 1 FROM tratamento t JOIN sessao s ON s.id_tratamento=t.id_tratamento WHERE t.id_paciente=p.id_paciente AND s.situacao='REALIZADA') GROUP BY p.id_paciente,p.nome HAVING AVG(a.nivel_dor)>=6",
+      "before": {
+        "median_ms": 0.6607195,
+        "min_ms": 0.592949,
+        "max_ms": 1.255532,
+        "samples_ms": [
+          1.115879,
+          0.666979,
+          0.855939,
+          0.661476,
+          1.083257,
+          0.659448,
+          0.81555,
+          0.657244,
+          0.645928,
+          0.614331,
+          0.714279,
+          0.62038,
+          0.648973,
+          0.643514,
+          0.621862,
+          0.623375,
+          0.954215,
+          0.729342,
+          0.660209,
+          0.632272,
+          0.622553,
+          0.592949,
+          1.067498,
+          0.659999,
+          0.751394,
+          0.627871,
+          0.66123,
+          1.131508,
+          1.255532,
+          0.786221
+        ],
+        "rows_returned": 14,
+        "explain": [
+          [
+            1,
+            "SIMPLE",
+            "<subquery2>",
+            null,
+            "ALL",
+            null,
+            null,
+            null,
+            null,
+            null,
+            100.0,
+            "Using temporary"
+          ],
+          [
+            1,
+            "SIMPLE",
+            "p",
+            null,
+            "eq_ref",
+            "PRIMARY",
+            "PRIMARY",
+            "4",
+            "<subquery2>.id_paciente",
+            1,
+            100.0,
+            null
+          ],
+          [
+            1,
+            "SIMPLE",
+            "a",
+            null,
+            "ref",
+            "uq_avaliacao_paciente_data,idx_evidence_fk",
+            "uq_avaliacao_paciente_data",
+            "4",
+            "<subquery2>.id_paciente",
+            2,
+            100.0,
+            null
+          ],
+          [
+            2,
+            "MATERIALIZED",
+            "t",
+            null,
+            "index",
+            "PRIMARY,uq_tratamento_paciente_especialidade_aberto,idx_tratamento_paciente",
+            "idx_tratamento_paciente",
+            "4",
+            null,
+            40,
+            100.0,
+            "Using index"
+          ],
+          [
+            2,
+            "MATERIALIZED",
+            "s",
+            null,
+            "ref",
+            "PRIMARY,idx_sessao_situacao",
+            "idx_sessao_situacao",
+            "5",
+            "const,clinica_fisioterapia.t.id_tratamento",
+            3,
+            100.0,
+            "Using where; Using index"
+          ]
+        ],
+        "explain_analyze": [
+          [
+            "-> Filter: (??? >= 6)  (actual time=0.643..0.651 rows=14 loops=1)\n    -> Table scan on <temporary>  (actual time=0.641..0.644 rows=37 loops=1)\n        -> Aggregate using temporary table  (actual time=0.641..0.641 rows=37 loops=1)\n            -> Nested loop inner join  (cost=91.4 rows=347) (actual time=0.247..0.505 rows=103 loops=1)\n                -> Nested loop inner join  (cost=56 rows=125) (actual time=0.242..0.299 rows=40 loops=1)\n                    -> Table scan on <subquery2>  (cost=39.3..43.3 rows=125) (actual time=0.238..0.242 rows=40 loops=1)\n                        -> Materialize with deduplication  (cost=39.2..39.2 rows=125) (actual time=0.238..0.238 rows=40 loops=1)\n                            -> Nested loop inner join  (cost=26.8 rows=125) (actual time=0.0465..0.215 rows=182 loops=1)\n                                -> Covering index scan on t using idx_tratamento_paciente  (cost=4.25 rows=40) (actual time=0.0395..0.0477 rows=40 loops=1)\n                                -> Filter: (s.situacao = 'REALIZADA')  (cost=0.259 rows=3.12) (actual time=0.00164..0.00383 rows=4.55 loops=40)\n                                    -> Covering index lookup on s using idx_sessao_situacao (situacao='REALIZADA', id_tratamento=t.id_tratamento)  (cost=0.259 rows=3.12) (actual time=0.00138..0.0031 rows=4.55 loops=40)\n                    -> Single-row index lookup on p using PRIMARY (id_paciente=`<subquery2>`.id_paciente)  (cost=0.35 rows=1) (actual time=0.00122..0.00125 rows=1 loops=40)\n                -> Index lookup on a using uq_avaliacao_paciente_data (id_paciente=`<subquery2>`.id_paciente)  (cost=0.974 rows=2.78) (actual time=0.00347..0.00489 rows=2.58 loops=40)\n"
+          ]
+        ]
+      },
+      "after": {
+        "median_ms": 0.7456405,
+        "min_ms": 0.55286,
+        "max_ms": 2.719333,
+        "samples_ms": [
+          0.592068,
+          0.810622,
+          0.700479,
+          0.813656,
+          0.656499,
+          0.5735,
+          2.591453,
+          0.670094,
+          0.62766,
+          0.571478,
+          0.55286,
+          0.754188,
+          2.719333,
+          0.745365,
+          0.735621,
+          0.604667,
+          0.596384,
+          0.988075,
+          2.292069,
+          1.122424,
+          0.755831,
+          0.624431,
+          0.625112,
+          0.7488,
+          0.578057,
+          0.745916,
+          0.845058,
+          1.720822,
+          1.113722,
+          0.860145
+        ],
+        "rows_returned": 14,
+        "explain": [
+          [
+            1,
+            "SIMPLE",
+            "<subquery2>",
+            null,
+            "ALL",
+            null,
+            null,
+            null,
+            null,
+            null,
+            100.0,
+            "Using temporary"
+          ],
+          [
+            1,
+            "SIMPLE",
+            "p",
+            null,
+            "eq_ref",
+            "PRIMARY",
+            "PRIMARY",
+            "4",
+            "<subquery2>.id_paciente",
+            1,
+            100.0,
+            null
+          ],
+          [
+            1,
+            "SIMPLE",
+            "a",
+            null,
+            "ref",
+            "uq_avaliacao_paciente_data,idx_avaliacao_dor",
+            "idx_avaliacao_dor",
+            "4",
+            "<subquery2>.id_paciente",
+            2,
+            100.0,
+            "Using index"
+          ],
+          [
+            2,
+            "MATERIALIZED",
+            "t",
+            null,
+            "index",
+            "PRIMARY,uq_tratamento_paciente_especialidade_aberto,idx_tratamento_paciente",
+            "idx_tratamento_paciente",
+            "4",
+            null,
+            40,
+            100.0,
+            "Using index"
+          ],
+          [
+            2,
+            "MATERIALIZED",
+            "s",
+            null,
+            "ref",
+            "PRIMARY,idx_sessao_situacao",
+            "idx_sessao_situacao",
+            "5",
+            "const,clinica_fisioterapia.t.id_tratamento",
+            3,
+            100.0,
+            "Using where; Using index"
+          ]
+        ],
+        "explain_analyze": [
+          [
+            "-> Filter: (??? >= 6)  (actual time=0.307..0.315 rows=14 loops=1)\n    -> Table scan on <temporary>  (actual time=0.305..0.309 rows=37 loops=1)\n        -> Aggregate using temporary table  (actual time=0.305..0.305 rows=37 loops=1)\n            -> Nested loop inner join  (cost=91 rows=347) (actual time=0.154..0.247 rows=103 loops=1)\n                -> Nested loop inner join  (cost=56 rows=125) (actual time=0.151..0.184 rows=40 loops=1)\n                    -> Table scan on <subquery2>  (cost=39.3..43.3 rows=125) (actual time=0.148..0.152 rows=40 loops=1)\n                        -> Materialize with deduplication  (cost=39.2..39.2 rows=125) (actual time=0.147..0.147 rows=40 loops=1)\n                            -> Nested loop inner join  (cost=26.8 rows=125) (actual time=0.0105..0.126 rows=182 loops=1)\n                                -> Covering index scan on t using idx_tratamento_paciente  (cost=4.25 rows=40) (actual time=0.00498..0.0126 rows=40 loops=1)\n                                -> Filter: (s.situacao = 'REALIZADA')  (cost=0.259 rows=3.12) (actual time=0.00139..0.0025 rows=4.55 loops=40)\n                                    -> Covering index lookup on s using idx_sessao_situacao (situacao='REALIZADA', id_tratamento=t.id_tratamento)  (cost=0.259 rows=3.12) (actual time=0.00118..0.00186 rows=4.55 loops=40)\n                    -> Single-row index lookup on p using PRIMARY (id_paciente=`<subquery2>`.id_paciente)  (cost=0.35 rows=1) (actual time=627e-6..651e-6 rows=1 loops=40)\n                -> Covering index lookup on a using idx_avaliacao_dor (id_paciente=`<subquery2>`.id_paciente)  (cost=0.529 rows=2.78) (actual time=937e-6..0.00132 rows=2.58 loops=40)\n"
+          ]
+        ]
+      }
+    }
+  ],
+  "profiles": [
+    {
+      "role": "Administrador",
+      "current_role": "`Administrador`@`%`",
+      "checks": [
+        {
+          "operation": "consulta paciente",
+          "expected_allowed": true,
+          "allowed": true,
+          "mysql_error": null
+        },
+        {
+          "operation": "visão restrita",
+          "expected_allowed": true,
+          "allowed": true,
+          "mysql_error": null
+        },
+        {
+          "operation": "excluir cadastro",
+          "expected_allowed": true,
+          "allowed": true,
+          "mysql_error": null
+        }
+      ]
+    },
+    {
+      "role": "Fisioterapeuta",
+      "current_role": "`Fisioterapeuta`@`%`",
+      "checks": [
+        {
+          "operation": "consulta paciente",
+          "expected_allowed": true,
+          "allowed": true,
+          "mysql_error": null
+        },
+        {
+          "operation": "visão restrita",
+          "expected_allowed": false,
+          "allowed": false,
+          "mysql_error": 1142
+        },
+        {
+          "operation": "excluir cadastro",
+          "expected_allowed": false,
+          "allowed": false,
+          "mysql_error": 1142
+        },
+        {
+          "operation": "inserir evolução",
+          "expected_allowed": true,
+          "allowed": true,
+          "mysql_error": null
+        }
+      ]
+    },
+    {
+      "role": "Estagiario",
+      "current_role": "`Estagiario`@`%`",
+      "checks": [
+        {
+          "operation": "consulta paciente",
+          "expected_allowed": false,
+          "allowed": false,
+          "mysql_error": 1142
+        },
+        {
+          "operation": "visão restrita",
+          "expected_allowed": true,
+          "allowed": true,
+          "mysql_error": null
+        },
+        {
+          "operation": "excluir cadastro",
+          "expected_allowed": false,
+          "allowed": false,
+          "mysql_error": 1142
+        },
+        {
+          "operation": "GRANT/REVOKE SELECT sala",
+          "allowed_before_revoke": true,
+          "denied_after_revoke": true
+        }
+      ]
+    }
+  ],
+  "concurrency": {
+    "isolation": "REPEATABLE-READ",
+    "lock_waits_observed": 1,
+    "session_b_wait_seconds": 0.02667281499998353,
+    "initial_capacity": 1,
+    "final_capacity": 3,
+    "outcome": "B esperou o bloqueio de A; após COMMIT de A, B incrementou sem perda de atualização."
+  },
+  "transaction": {
+    "committed_session_and_evolution": true,
+    "second_statement_failure": 1048,
+    "session_absent_after_rollback": true,
+    "scope": "Operação equivalente em SQL; tela original de sessão não foi corrigida."
+  },
+  "audit": {
+    "rows": [
+      [
+        "UPDATE",
+        "Evidência temporária",
+        "Evidência temporária",
+        "Resposta informada no teste",
+        "Alteração de teste",
+        "root@localhost",
+        "2026-10-26 20:44:38"
+      ],
+      [
+        "DEL_CASC",
+        "Evidência temporária",
+        null,
+        "Alteração de teste",
+        null,
+        "root@localhost",
+        "2026-10-26 20:44:38"
+      ]
+    ],
+    "note": "UPDATE direto e DELETE em cascata da sessão; conta administrativa de teste identificada."
+  }
+}

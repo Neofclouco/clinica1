@@ -1,0 +1,74 @@
+import java.sql.*;
+import java.util.*;
+import javax.swing.*;
+import java.lang.reflect.*;
+
+/** Requer uma cópia descartável do banco original. Não execute em produção. */
+public class CrudIntegrationTest {
+    static void check(boolean ok,String why){if(!ok)throw new AssertionError(why);}
+    static long scalar(String sql)throws Exception{try(Connection c=DbConfig.open();Statement s=c.createStatement();ResultSet r=s.executeQuery(sql)){r.next();return r.getLong(1);}}
+    public static void main(String[] args)throws Exception {
+        if(!"YES".equals(System.getenv("EVIDENCE_CONFIRM_DISPOSABLE")))throw new IllegalStateException("Confirme ambiente descartável.");
+        CrudRepository repo=new CrudRepository();
+        String[][] rows={
+            {"99999999990","Teste JDBC","2001-01-01","","ATIVO",""},
+            {"99999999991","Teste Fisio","","","TESTE-JDBC"},
+            {"TESTE-JDBC","2"},
+            {"Teste JDBC ' OR '1'='1","Joelho",""}
+        };
+        int i=0;
+        for(CrudRepository.Entity e:CrudRepository.Entity.values()) {
+            String[] v=rows[i++];long key=repo.save(e,null,v);
+            try {
+                check(Arrays.equals(repo.find(e,key),v),e+" leitura/NULL");
+                int col=e==CrudRepository.Entity.SALA||e==CrudRepository.Entity.EXERCICIO?0:1;v[col]+=" atualizado";
+                repo.save(e,key,v);check(Arrays.equals(repo.find(e,key),v),e+" atualização");
+                repo.save(e,key,v); // atualização idempotente também deve funcionar
+                check(repo.delete(e,key),e+" exclusão");check(repo.find(e,key)==null,e+" ausência após excluir");
+                check(!repo.delete(e,key),e+" exclusão de inexistente");
+                System.out.println("PASS CRUD "+e+" criar/consultar/alterar/excluir/NULL/idempotência");
+            }finally{repo.delete(e,key);}
+        }
+        long before=scalar("SELECT COUNT(*) FROM profissional");
+        String crefito;
+        try(Connection c=DbConfig.open();Statement s=c.createStatement();ResultSet r=s.executeQuery("SELECT crefito FROM fisioterapeuta LIMIT 1")){r.next();crefito=r.getString(1);}
+        try{repo.save(CrudRepository.Entity.FISIOTERAPEUTA,null,new String[]{"99999999992","Rollback","","",crefito});throw new AssertionError("Duplicidade deveria falhar");}
+        catch(SQLException ex){check(ex.getErrorCode()==1062,"Erro de duplicidade");}
+        check(before==scalar("SELECT COUNT(*) FROM profissional"),"Rollback do supertipo");
+        System.out.println("PASS transação fisioterapeuta: segundo INSERT falha, primeiro INSERT desfeito");
+        try{repo.delete(CrudRepository.Entity.PACIENTE,15);throw new AssertionError("Exclusão referenciada permitida");}
+        catch(SQLException ex){check(ex.getErrorCode()==1451,"FK restritiva");}
+        try{CrudRepository.positiveId("1 OR 1=1");throw new AssertionError("ID inválido aceito");}catch(IllegalArgumentException expected){}
+        check(scalar("SELECT COUNT(*) FROM paciente")==40,"Carga preservada");
+        System.out.println("PASS FK restritiva, rejeição de ID com SQL injection e texto literal com aspas");
+        // Exercita as ações reais do formulário em EDT, com operações JDBC em SwingWorker.
+        CrudPanel[] panel=new CrudPanel[1];JFrame[] frame=new JFrame[1];
+        SwingUtilities.invokeAndWait(()->{panel[0]=new CrudPanel(CrudRepository.Entity.SALA);frame[0]=new JFrame();frame[0].add(panel[0]);frame[0].setSize(800,600);frame[0].setVisible(true);});
+        Field vf=CrudPanel.class.getDeclaredField("values");vf.setAccessible(true);JTextField[] fields=(JTextField[])vf.get(panel[0]);
+        Field bf=CrudPanel.class.getDeclaredField("buttons");bf.setAccessible(true);
+        @SuppressWarnings("unchecked") List<JButton> buttons=(List<JButton>)bf.get(panel[0]);
+        Field idf=CrudPanel.class.getDeclaredField("id");idf.setAccessible(true);JTextField id=(JTextField)idf.get(panel[0]);
+        long uiId=0;
+        try {
+            SwingUtilities.invokeAndWait(()->{fields[0].setText("TESTE-UI");fields[1].setText("3");buttons.get(0).doClick();});waitDone(buttons);
+            uiId=Long.parseLong(id.getText());check(repo.find(CrudRepository.Entity.SALA,uiId)[0].equals("TESTE-UI"),"UI criar");
+            SwingUtilities.invokeAndWait(()->{fields[0].setText("TESTE-UI-EDIT");buttons.get(2).doClick();});waitDone(buttons);
+            SwingUtilities.invokeAndWait(()->{fields[0].setText("");buttons.get(1).doClick();});waitDone(buttons);
+            check(fields[0].getText().equals("TESTE-UI-EDIT"),"UI consultar/atualizar");
+            // Confirma explicitamente a exclusão do registro temporário no modal.
+            SwingUtilities.invokeAndWait(()->{
+                javax.swing.Timer timer=new javax.swing.Timer(150,e->{for(java.awt.Window w:java.awt.Window.getWindows())if(w instanceof JDialog && w.isVisible())accept(w);});
+                timer.start();buttons.get(3).doClick();timer.stop();
+            });waitDone(buttons);
+            check(repo.find(CrudRepository.Entity.SALA,uiId)==null,"UI excluir");
+            System.out.println("PASS Swing: quatro botões executaram JDBC e exclusão confirmada");
+        }finally{if(uiId>0)repo.delete(CrudRepository.Entity.SALA,uiId);SwingUtilities.invokeAndWait(()->frame[0].dispose());}
+        System.out.println("ALL TESTS PASSED");System.exit(0);
+    }
+    static void accept(java.awt.Container c){for(java.awt.Component x:c.getComponents()){if(x instanceof JOptionPane p)p.setValue(JOptionPane.YES_OPTION);if(x instanceof java.awt.Container cc)accept(cc);}}
+    static void waitDone(List<JButton> b)throws Exception {
+        long end=System.nanoTime()+10_000_000_000L;
+        while(System.nanoTime()<end){boolean[] ready={false};SwingUtilities.invokeAndWait(()->ready[0]=b.get(0).isEnabled());if(ready[0])return;Thread.sleep(20);}
+        throw new AssertionError("Timeout da interface");
+    }
+}

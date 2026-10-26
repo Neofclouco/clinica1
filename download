@@ -1,0 +1,5 @@
+# Referência apenas. Java não carrega este arquivo automaticamente.
+# Exporte as variáveis no terminal conforme o README; não grave senhas no Git.
+DB_URL=jdbc:mysql://localhost:3306/clinica_fisioterapia
+DB_USER=admin_user
+DB_PASSWORD=

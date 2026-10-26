@@ -1,0 +1,139 @@
+# Clínica de Fisioterapia
+
+Projeto de Laboratório de Banco de Dados (UCB), 2026/2.
+Integrantes: David, Felipe Romero, Caio e Felipe Sena.
+
+## Estado desta revisão
+
+Quatro CRUDs funcionais: **Pacientes, Fisioterapeutas, Salas e Exercícios**.
+Equipamentos foi substituído por Exercícios porque não existe no modelo do banco.
+Credenciais são obrigatoriamente externas. Há testes JDBC/Swing e evidências reais de
+EXPLAIN, concorrência, perfis, GRANT/REVOKE, transação e auditoria.
+
+**Ainda não é uma entrega final aprovada:** consultas avançadas, visão gerencial,
+tela antiga de sessões e problemas de modelagem permanecem pendentes por limite
+explícito de escopo. Consulte [o relatório consolidado](docs/relatorio-consolidado.md)
+e [o PDF com anexos](docs/relatorio-consolidado.pdf). Os PDFs antigos permanecem
+como documentos históricos, não como prova de conformidade atual.
+
+## Requisitos
+
+- JDK 17 ou superior, com `java` e `javac` no PATH (versão testada: OpenJDK 17).
+- MySQL 8.0.18 ou superior (testado: MySQL 8.0.46).
+- [MySQL Connector/J 8.4.0](https://repo.maven.apache.org/maven2/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar).
+  Salve o arquivo em `lib/mysql-connector-j-8.4.0.jar`. O driver não é versionado.
+- Desktop gráfico para Swing. No Linux sem desktop, use Xvfb para os testes de UI.
+
+## Preparar o banco
+
+**Somente numa instância de desenvolvimento:** `SQL/etapa01.sql` começa com DROP
+DATABASE e apaga uma base existente com esse nome. Faça backup se ela tiver dados.
+Abra o cliente `mysql -u root -p` (ou outra conta de instalação autorizada) e execute:
+
+```sql
+source SQL/etapa01.sql;
+source SQL/etapa02.sql;
+```
+
+O segundo script cria três contas e imprime as senhas aleatórias na primeira criação.
+Guarde-as fora do repositório. Uma segunda execução com IF NOT EXISTS não recupera
+nem substitui senhas de contas já existentes. Nesse caso peça ao administrador para
+redefinir a conta; não copie credenciais para o código.
+
+Para demonstrar os quatro CRUDs use `admin_user` (papel Administrador, limitado ao
+schema da clínica), não root. Fisioterapeuta e Estagiario são intencionalmente restritos;
+o sistema exibirá acesso negado para operações que esses papéis não possuem.
+
+## Compilar e iniciar — Windows / PowerShell
+
+Na raiz do repositório, após salvar o driver:
+
+```powershell
+New-Item -ItemType Directory -Force build | Out-Null
+javac -encoding UTF-8 -d build interface/*.java
+$env:DB_URL = 'jdbc:mysql://localhost:3306/clinica_fisioterapia'
+$env:DB_USER = 'admin_user'
+$env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'Senha do banco' -AsSecureString)).Password
+java -cp 'build;lib/mysql-connector-j-8.4.0.jar' ClinicaApp
+Remove-Item Env:DB_PASSWORD
+```
+
+## Compilar e iniciar — Linux / macOS / Bash
+
+```bash
+mkdir -p build
+javac -encoding UTF-8 -d build interface/*.java
+export DB_URL='jdbc:mysql://localhost:3306/clinica_fisioterapia'
+export DB_USER='admin_user'
+read -rsp 'Senha do banco: ' DB_PASSWORD; echo
+export DB_PASSWORD
+java -cp 'build:lib/mysql-connector-j-8.4.0.jar' ClinicaApp
+unset DB_PASSWORD
+```
+
+`.env.example` é apenas referência. Java **não lê .env automaticamente**. DB_URL,
+DB_USER e DB_PASSWORD são obrigatórias; não há fallback de senha ou de usuário.
+Se a antiga senha publicada foi usada de verdade, o responsável deve trocá-la:
+a remoção do fonte atual não a retira do histórico Git.
+
+## Usar os cadastros
+
+- Para criar, preencha os campos e clique Criar; o banco gera o ID, ignorando o campo ID.
+- Para consultar, atualizar ou excluir, informe o ID. A consulta preenche o formulário.
+- CPF: 11 dígitos sem pontuação; data: AAAA-MM-DD; situação: ATIVO ou INATIVO.
+- Campos opcionais vazios viram NULL. ID de convênio deve existir quando informado.
+- O cadastro de fisioterapeuta insere/atualiza as duas tabelas numa única transação.
+  Especialidades são outro vínculo do modelo e não são um campo dessa tabela.
+- A exclusão pede confirmação. Referências a tratamentos, sessões ou supervisão
+  podem bloquear a operação, como definido no SQL original.
+
+## Reproduzir os testes
+
+Crie uma **instância MySQL descartável**, restaure os dois scripts nela e configure
+DB_URL/DB_USER/DB_PASSWORD para essa instância. Use `admin_user` nos testes Java.
+Nunca aponte a suíte para dados reais. Os testes dependem da carga original, inclusive
+40 pacientes, paciente 15 referenciado e ausência dos códigos TESTE-* / EVID-*.
+
+```bash
+export EVIDENCE_CONFIRM_DISPOSABLE=YES
+javac -encoding UTF-8 -d build interface/*.java tests/CrudIntegrationTest.java
+java -cp 'build:lib/mysql-connector-j-8.4.0.jar' CrudIntegrationTest
+# Linux sem desktop: xvfb-run -a java -cp 'build:lib/mysql-connector-j-8.4.0.jar' CrudIntegrationTest
+```
+
+No PowerShell use `$env:EVIDENCE_CONFIRM_DISPOSABLE = 'YES'` e separador `;` no
+classpath. A suíte testa os quatro repositórios JDBC e as quatro ações do painel Swing.
+Um teste negativo provoca falha no segundo INSERT de fisioterapeuta e verifica rollback.
+
+Para B3/B4/B5/B6, instale Python 3.10+ e `pip install -r tests/requirements.txt`.
+Configure MYSQL_HOST, MYSQL_PORT, MYSQL_USER e MYSQL_PASSWORD para a mesma cópia.
+Essa conta de teste precisa administrar contas/papéis/índices, acessar o schema
+`mysql` para gestão de contas e consultar `performance_schema.data_lock_waits`.
+Não use essa conta privilegiada na aplicação cotidiana.
+
+```bash
+export MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root
+read -rsp 'Senha administrativa da cópia descartável: ' MYSQL_PASSWORD; echo
+export MYSQL_PASSWORD
+python3 tests/evidence.py
+unset MYSQL_PASSWORD
+```
+
+A suíte cria logins aleatórios temporários, testa os papéis existentes e remove-os.
+Remove/recria três índices para medir antes/depois e usa linhas temporárias.
+Ela não modifica os scripts SQL versionados. Se a execução for interrompida, descarte
+ou restaure a instância antes de repetir. Saídas: `docs/evidencias/resultados.json`
+e log da suíte Java (capture sua saída em `docs/evidencias/crud-jdbc.txt`).
+Os resultados medidos neste ambiente estão versionados para consulta.
+
+## Organização
+
+- `interface/`: aplicação Swing, configuração externa, repositório JDBC e formulário.
+- `SQL/etapa01.sql`, `SQL/etapa02.sql`: scripts originais preservados nesta revisão.
+- `tests/`: testes reproduzíveis; `docs/evidencias/`: resultados observados, sem senhas.
+- `docs/relatorio-consolidado.md` e `.pdf`: revisão, evidências e pendências completas.
+
+Uso de IA nesta revisão: implementação, testes e redação assistidos; resultados
+verificados por execução em MySQL e Swing. Os integrantes ainda precisam reproduzir,
+revisar e dominar o código antes da apresentação. Não se atribuem à equipe experimentos
+que ela ainda não realizou pessoalmente.
